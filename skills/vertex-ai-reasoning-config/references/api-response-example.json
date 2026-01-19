@@ -1,0 +1,168 @@
+# Sample API Response
+
+This is a representative example of what a GET request to a Vertex AI Reasoning Engine returns. Use this to understand the structure and locate the `spec.deploymentSpec.env` field.
+
+```json
+{
+  "name": "projects/my-project/locations/us-central1/reasoningEngines/my-engine-123",
+  "displayName": "My Reasoning Engine",
+  "createTime": "2025-01-15T10:30:00Z",
+  "updateTime": "2025-01-19T09:15:30Z",
+  "state": "ACTIVE",
+  "spec": {
+    "displayName": "My Reasoning Engine",
+    "deploymentSpec": {
+      "containerSpec": {
+        "imageUri": "us-docker.pkg.dev/vertex-ai/reasoning-engine/reasoning-engine:latest",
+        "command": [
+          "python",
+          "-m",
+          "reasoning_engine.server"
+        ],
+        "env": [
+          {
+            "name": "LOG_LEVEL",
+            "value": "info"
+          },
+          {
+            "name": "REQUEST_TIMEOUT",
+            "value": "30"
+          }
+        ],
+        "ports": [
+          {
+            "containerPort": 8080,
+            "name": "http"
+          }
+        ]
+      },
+      "machineSpec": {
+        "machineType": "e2-standard-4"
+      },
+      "replicaCount": 1
+    }
+  },
+  "etag": "abc123xyz789",
+  "labels": {
+    "environment": "production",
+    "team": "data-science"
+  }
+}
+```
+
+## Key Fields
+
+### spec.deploymentSpec.env Array
+
+Located at path: `response.spec.deploymentSpec.env`
+
+This is an array of objects, each with `name` and `value` fields:
+
+```json
+"env": [
+  {
+    "name": "LOG_LEVEL",
+    "value": "info"
+  },
+  {
+    "name": "REQUEST_TIMEOUT",
+    "value": "30"
+  },
+  {
+    "name": "TRACE_ENABLED",
+    "value": "true"
+  }
+]
+```
+
+**Important**: When PATCH-ing this field, you must include ALL existing variables plus any new ones. PATCH replaces the entire array.
+
+## PATCH Request Example
+
+To add a new environment variable while preserving existing ones:
+
+```bash
+CURL_CMD='curl -X PATCH \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "spec": {
+      "deploymentSpec": {
+        "env": [
+          {
+            "name": "LOG_LEVEL",
+            "value": "info"
+          },
+          {
+            "name": "REQUEST_TIMEOUT",
+            "value": "30"
+          },
+          {
+            "name": "TRACE_ENABLED",
+            "value": "true"
+          },
+          {
+            "name": "NEW_VAR",
+            "value": "new_value"
+          }
+        ]
+      }
+    }
+  }' \
+  "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/my-project/locations/us-central1/reasoningEngines/my-engine-123?updateMask=spec.deploymentSpec.env"'
+```
+
+**Key points**:
+- Query parameter: `?updateMask=spec.deploymentSpec.env`
+- Body path: `spec.deploymentSpec.env`
+- Include ALL existing env vars + new ones
+- Array format: `[{"name": "KEY", "value": "VALUE"}]`
+
+## Getting the Current Configuration
+
+Before making changes, retrieve current state:
+
+```bash
+curl -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  https://us-central1-aiplatform.googleapis.com/v1beta1/projects/my-project/locations/us-central1/reasoningEngines/my-engine-123 \
+  | jq '.spec.deploymentSpec.env'
+```
+
+Output:
+```json
+[
+  {
+    "name": "LOG_LEVEL",
+    "value": "info"
+  },
+  {
+    "name": "REQUEST_TIMEOUT",
+    "value": "30"
+  }
+]
+```
+
+Use this as your baseline when constructing the PATCH request.
+
+## Other Notable Fields (Don't Modify Here)
+
+```json
+{
+  "spec": {
+    "deploymentSpec": {
+      "containerSpec": {
+        "imageUri": "...",      // Don't modify without updateMask for it
+        "command": [...],        // Don't modify without updateMask for it
+        "ports": [...]           // Don't modify without updateMask for it
+      },
+      "machineSpec": {
+        "machineType": "..."     // Don't modify without updateMask for it
+      },
+      "replicaCount": 1          // Don't modify without updateMask for it
+    }
+  }
+}
+```
+
+**That's why `updateMask=spec.deploymentSpec.env` is critical** — it tells the API "only change the env field, leave everything else alone."
+
